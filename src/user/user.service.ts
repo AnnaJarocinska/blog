@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { UserEntity } from 'src/entities/user.entity';
 import { Repository } from 'typeorm';
-import { UpdateUserDTO } from 'src/models/user.model';
+
+import { UserEntity } from 'src/entities/user.entity';
+import { ProfileResponse } from 'src/models/user.model';
 
 @Injectable()
 export class UserService {
@@ -10,16 +11,22 @@ export class UserService {
     @InjectRepository(UserEntity) private userRepo: Repository<UserEntity>,
   ) {}
 
-  async findByUsername(username: string): Promise<UserEntity> {
-    return this.userRepo.findOne({ where: { username } });
+  async findByUsername(
+    username: string,
+    user?: UserEntity,
+  ): Promise<ProfileResponse> {
+    return (
+      await this.userRepo.findOne({
+        where: { username },
+        relations: ['followers'],
+      })
+    ).toProfile(user);
   }
 
-  async updateUser(username: string, data: UpdateUserDTO) {
-    await this.userRepo.update({ username }, data);
-    return this.findByUsername(username);
-  }
-
-  async followUser(currentUser: UserEntity, username: string) {
+  async followUser(
+    currentUser: UserEntity,
+    username: string,
+  ): Promise<ProfileResponse> {
     const user = await this.userRepo.findOne({
       where: { username },
       relations: ['followers'],
@@ -29,7 +36,10 @@ export class UserService {
     return user.toProfile(currentUser);
   }
 
-  async unfollowUser(currentUser: UserEntity, username: string) {
+  async unfollowUser(
+    currentUser: UserEntity,
+    username: string,
+  ): Promise<ProfileResponse> {
     const user = await this.userRepo.findOne({
       where: { username },
       relations: ['followers'],

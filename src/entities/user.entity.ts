@@ -1,8 +1,19 @@
-import { Entity, Column, BeforeInsert, JoinTable, ManyToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  BeforeInsert,
+  JoinTable,
+  ManyToMany,
+  OneToMany,
+} from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Exclude, classToPlain } from 'class-transformer';
 import { IsEmail } from 'class-validator';
-import { AbstractEntity } from './abstract-entity';
+
+import { AbstractEntity } from './abstract.entity';
+import { ArticleEntity } from './article.entity';
+import { CommentEntity } from './comment.entity';
+import { UserResponse } from 'src/models/user.model';
 
 @Entity('users')
 export class UserEntity extends AbstractEntity {
@@ -23,12 +34,21 @@ export class UserEntity extends AbstractEntity {
   @Exclude()
   password: string;
 
-  @ManyToMany((type) => UserEntity, (user) => user.followee)
+  @ManyToMany(() => UserEntity, (user) => user.followee)
   @JoinTable()
   followers: UserEntity[];
 
-  @ManyToMany((type) => UserEntity, (user) => user.followers)
+  @ManyToMany(() => UserEntity, (user) => user.followers)
   followee: UserEntity[];
+
+  @OneToMany(() => ArticleEntity, (article) => article.author)
+  articles: ArticleEntity[];
+
+  @OneToMany(() => CommentEntity, (comment) => comment.author)
+  comments: CommentEntity[];
+
+  @ManyToMany(() => ArticleEntity, (article) => article.favoritedBy)
+  favorites: ArticleEntity[];
 
   @BeforeInsert()
   async hashPassword() {
@@ -39,12 +59,15 @@ export class UserEntity extends AbstractEntity {
     return await bcrypt.compare(attempt, this.password);
   }
 
-  toJSON() {
-    return classToPlain(this);
+  toJSON(): UserResponse {
+    return <UserResponse>classToPlain(this);
   }
 
-  toProfile(user: UserEntity) {
-    const following = this.followers.includes(user);
+  toProfile(user?: UserEntity) {
+    let following = null;
+    if (user) {
+      following = this.followers.includes(user);
+    }
     const profile: any = this.toJSON();
     delete profile.followers;
     return { ...profile, following };
